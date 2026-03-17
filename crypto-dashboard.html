@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoVault — Live Prices & Transactions</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #030712;
+    --surface: #0d1117;
+    --surface2: #161b27;
+    --border: #1f2937;
+    --accent: #00e5a0;
+    --accent2: #f59e0b;
+    --accent3: #ef4444;
+    --accent4: #3b82f6;
+    --text: #f0f6fc;
+    --muted: #6b7280;
+    --green: #10b981;
+    --red: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+  /* ===== HEADER ===== */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 0;
+    position: sticky;
+    top: 0;
+    background: rgba(3,7,18,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .logo {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo span { color: var(--accent); }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.2);
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.7); }
+  }
+
+  /* ===== TICKER ===== */
+  .ticker-wrap {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    height: 40px;
+  }
+
+  .ticker-track {
+    display: flex;
+    gap: 40px;
+    animation: ticker 30s linear infinite;
+    white-space: nowrap;
+    height: 100%;
+    align-items: center;
+    padding: 0 20px;
+    width: max-content;
+  }
+
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .ticker-item {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .ticker-sym { color: var(--muted); }
+  .ticker-price { color: var(--text); font-weight: 700; }
+  .ticker-chg.up { color: var(--green); }
+  .ticker-chg.dn { color: var(--red); }
+
+  /* ===== MAIN LAYOUT ===== */
+  .main { padding: 32px 0; }
+
+  /* ===== PRICE CARDS ===== */
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .price-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .price-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 60%, rgba(255,255,255,0.02));
+    pointer-events: none;
+  }
+
+  .price-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,229,160,0.1);
+  }
+
+  .price-card.active {
+    border-color: var(--accent);
+    background: rgba(0,229,160,0.05);
+  }
+
+  .coin-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .coin-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+  }
+
+  .change-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+
+  .change-badge.up { background: rgba(16,185,129,0.15); color: var(--green); }
+  .change-badge.dn { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  .coin-name { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .coin-price { font-family: 'Space Mono', monospace; font-size: 20px; font-weight: 700; }
+  .coin-vol { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  /* ===== MINI SPARKLINE ===== */
+  .sparkline { margin-top: 10px; height: 36px; }
+  .sparkline svg { width: 100%; height: 100%; }
+
+  /* ===== BOTTOM GRID ===== */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 24px;
+  }
+
+  @media (max-width: 900px) {
+    .bottom-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ===== TRANSACTIONS TABLE ===== */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .filter-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 4px;
+  }
+
+  .ftab {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    color: var(--muted);
+  }
+
+  .ftab.active, .ftab:hover {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .tx-table { width: 100%; border-collapse: collapse; }
+
+  .tx-table th {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 12px 24px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tx-table td {
+    padding: 14px 24px;
+    border-bottom: 1px solid rgba(31,41,55,0.5);
+    font-size: 13px;
+    vertical-align: middle;
+  }
+
+  .tx-table tr:last-child td { border-bottom: none; }
+
+  .tx-table tr { transition: background 0.15s; }
+  .tx-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .tx-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  .tx-type.credit { background: rgba(16,185,129,0.12); color: var(--green); }
+  .tx-type.debit { background: rgba(239,68,68,0.12); color: var(--red); }
+  .tx-type.transfer { background: rgba(59,130,246,0.12); color: var(--accent4); }
+  .tx-type.payment { background: rgba(245,158,11,0.12); color: var(--accent2); }
+
+  .tx-hash {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .tx-hash span {
+    color: var(--accent4);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .tx-amount {
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .tx-amount.pos { color: var(--green); }
+  .tx-amount.neg { color: var(--red); }
+
+  .tx-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+
+  .tx-status.confirmed .status-dot { background: var(--green); }
+  .tx-status.pending .status-dot { background: var(--accent2); animation: pulse 1.5s infinite; }
+  .tx-status.failed .status-dot { background: var(--red); }
+
+  .tx-status.confirmed { color: var(--green); }
+  .tx-status.pending { color: var(--accent2); }
+  .tx-status.failed { color: var(--red); }
+
+  .coin-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+
+  /* ===== RECEIPT PANEL ===== */
+  .receipt-panel { display: flex; flex-direction: column; gap: 16px; }
+
+  .receipt-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .receipt-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .receipt-title { font-size: 15px; font-weight: 700; }
+
+  .receipt-body { padding: 16px 20px; }
+
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 13px;
+  }
+
+  .receipt-row + .receipt-row {
+    border-top: 1px dashed var(--border);
+  }
+
+  .receipt-key { color: var(--muted); font-size: 12px; }
+  .receipt-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .receipt-total {
+    border-top: 2px solid var(--border);
+    margin-top: 8px;
+    padding-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .receipt-total .receipt-key { font-size: 14px; color: var(--text); font-weight: 700; }
+  .receipt-total .receipt-val { font-size: 16px; color: var(--accent); }
+
+  /* ===== SUMMARY CARDS ===== */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .summary-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .summary-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .summary-val.green { color: var(--green); }
+  .summary-val.red { color: var(--red); }
+  .summary-val.blue { color: var(--accent4); }
+  .summary-val.yellow { color: var(--accent2); }
+
+  .summary-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ===== TIMESTAMP ===== */
+  .tx-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* ===== ANIMATIONS ===== */
+  .fade-in { animation: fadeIn 0.5s ease forwards; }
+  .fade-in-up { animation: fadeInUp 0.5s ease forwards; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  .price-card { animation: fadeInUp 0.4s ease both; }
+  .price-card:nth-child(1) { animation-delay: 0.05s; }
+  .price-card:nth-child(2) { animation-delay: 0.1s; }
+  .price-card:nth-child(3) { animation-delay: 0.15s; }
+  .price-card:nth-child(4) { animation-delay: 0.2s; }
+  .price-card:nth-child(5) { animation-delay: 0.25s; }
+  .price-card:nth-child(6) { animation-delay: 0.3s; }
+
+  .table-overflow { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">₿</div>
+      Crypto<span>Vault</span>
+    </div>
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      LIVE PRICES
+    </div>
+  </div>
+</header>
+
+<!-- Ticker -->
+<div class="ticker-wrap">
+  <div class="ticker-track" id="ticker"></div>
+</div>
+
+<div class="wrapper main">
+
+  <!-- Summary -->
+  <div class="section-label">Portfolio Overview</div>
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label">Total Credits</div>
+      <div class="summary-val green" id="totalCredits">$0.00</div>
+      <div class="summary-sub">↑ Received this month</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Total Debits</div>
+      <div class="summary-val red" id="totalDebits">$0.00</div>
+      <div class="summary-sub">↓ Sent this month</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Payments Made</div>
+      <div class="summary-val yellow" id="totalPayments">$0.00</div>
+      <div class="summary-sub">Completed payments</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Net Balance</div>
+      <div class="summary-val blue" id="netBalance">$0.00</div>
+      <div class="summary-sub">Credits minus Debits</div>
+    </div>
+  </div>
+
+  <!-- Coin Prices -->
+  <div class="section-label">Live Prices</div>
+  <div class="price-grid" id="priceGrid"></div>
+
+  <!-- Bottom -->
+  <div class="bottom-grid">
+
+    <!-- Transactions -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Transaction History</div>
+        <div class="filter-tabs">
+          <button class="ftab active" onclick="filterTx('all', this)">All</button>
+          <button class="ftab" onclick="filterTx('credit', this)">Credits</button>
+          <button class="ftab" onclick="filterTx('debit', this)">Debits</button>
+          <button class="ftab" onclick="filterTx('payment', this)">Payments</button>
+        </div>
+      </div>
+      <div class="table-overflow">
+        <table class="tx-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Asset</th>
+              <th>Amount</th>
+              <th>USD Value</th>
+              <th>Hash</th>
+              <th>Status</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="txBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Receipt Panel -->
+    <div class="receipt-panel">
+
+      <!-- Latest Receipt -->
+      <div class="receipt-card">
+        <div class="receipt-header">
+          <div class="receipt-title">🧾 Latest Receipt</div>
+          <span class="tx-status confirmed"><span class="status-dot"></span>Confirmed</span>
+        </div>
+        <div class="receipt-body" id="latestReceipt"></div>
+      </div>
+
+      <!-- Pending Payment -->
+      <div class="receipt-card">
+        <div class="receipt-header">
+          <div class="receipt-title">⏳ Pending Payment</div>
+          <span class="tx-status pending"><span class="status-dot"></span>Pending</span>
+        </div>
+        <div class="receipt-body" id="pendingPayment"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===== DATA =====
+const COINS = [
+  { sym: 'BTC', name: 'Bitcoin',  price: 67420, change: 2.34, vol: '28.4B', icon: '₿', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+  { sym: 'ETH', name: 'Ethereum', price: 3582,  change: -1.12, vol: '14.2B', icon: 'Ξ', color: '#818cf8', bg: 'rgba(129,140,248,0.15)' },
+  { sym: 'BNB', name: 'BNB',      price: 412,   change: 0.87, vol: '2.1B',  icon: 'B', color: '#f0b90b', bg: 'rgba(240,185,11,0.15)' },
+  { sym: 'SOL', name: 'Solana',   price: 178,   change: 5.43, vol: '5.6B',  icon: 'S', color: '#9945ff', bg: 'rgba(153,69,255,0.15)' },
+  { sym: 'XRP', name: 'XRP',      price: 0.58,  change: -2.01, vol: '1.8B', icon: 'X', color: '#00aae4', bg: 'rgba(0,170,228,0.15)' },
+  { sym: 'ADA', name: 'Cardano',  price: 0.47,  change: 1.55, vol: '0.9B',  icon: 'A', color: '#0033ad', bg: 'rgba(0,51,173,0.15)' },
+];
+
+const TRANSACTIONS = [
+  { type:'credit',   coin:'BTC', amount: 0.052,  usd: 3506.24, hash:'3a9f...b12c', status:'confirmed', date:'2026-03-16 09:14' },
+  { type:'debit',    coin:'ETH', amount: 1.5,    usd: 5373.00, hash:'7d2e...a48f', status:'confirmed', date:'2026-03-15 18:42' },
+  { type:'payment',  coin:'BNB', amount: 2.0,    usd: 824.00,  hash:'b51a...c93d', status:'confirmed', date:'2026-03-15 14:10' },
+  { type:'credit',   coin:'SOL', amount: 12.0,   usd: 2136.00, hash:'9c3b...f77e', status:'confirmed', date:'2026-03-14 22:05' },
+  { type:'transfer', coin:'XRP', amount: 500,    usd: 290.00,  hash:'4e8d...1a2b', status:'pending',   date:'2026-03-14 11:30' },
+  { type:'debit',    coin:'ADA', amount: 200,    usd: 94.00,   hash:'2f1c...8e5a', status:'confirmed', date:'2026-03-13 16:55' },
+  { type:'payment',  coin:'BTC', amount: 0.021,  usd: 1415.82, hash:'6b4d...c29f', status:'confirmed', date:'2026-03-12 08:20' },
+  { type:'credit',   coin:'ETH', amount: 0.8,    usd: 2865.60, hash:'1a7e...d34c', status:'pending',   date:'2026-03-11 19:47' },
+  { type:'debit',    coin:'SOL', amount: 5.0,    usd: 890.00,  hash:'8f2a...b67d', status:'failed',    date:'2026-03-11 12:00' },
+  { type:'transfer', coin:'BNB', amount: 3.5,    usd: 1442.00, hash:'5c9b...e12a', status:'confirmed', date:'2026-03-10 09:35' },
+];
+
+// ===== TICKER =====
+function buildTicker() {
+  const track = document.getElementById('ticker');
+  const doubled = [...COINS, ...COINS];
+  track.innerHTML = doubled.map(c => `
+    <span class="ticker-item">
+      <span class="ticker-sym">${c.sym}/USD</span>
+      <span class="ticker-price">$${c.price.toLocaleString()}</span>
+      <span class="ticker-chg ${c.change >= 0 ? 'up' : 'dn'}">${c.change >= 0 ? '▲' : '▼'} ${Math.abs(c.change)}%</span>
+    </span>
+  `).join('');
+}
+
+// ===== SPARKLINE =====
+function sparklinePath(up) {
+  const pts = Array.from({length: 12}, (_, i) => {
+    const noise = (Math.random() - 0.5) * 20;
+    const trend = up ? i * 2 : -i * 1.5;
+    return 30 + trend + noise;
+  });
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const norm = pts.map(p => ((p - min) / (max - min || 1)) * 28 + 4);
+  const step = 100 / (norm.length - 1);
+  const d = norm.map((y, i) => `${i === 0 ? 'M' : 'L'} ${i * step} ${32 - y}`).join(' ');
+  return d;
+}
+
+// ===== PRICE GRID =====
+function buildPriceGrid() {
+  const grid = document.getElementById('priceGrid');
+  grid.innerHTML = COINS.map(c => {
+    const up = c.change >= 0;
+    const path = sparklinePath(up);
+    return `
+    <div class="price-card" onclick="selectCoin('${c.sym}')">
+      <div class="coin-top">
+        <div class="coin-icon" style="background:${c.bg};color:${c.color}">${c.icon}</div>
+        <div class="change-badge ${up ? 'up' : 'dn'}">${up ? '+' : ''}${c.change}%</div>
+      </div>
+      <div class="coin-name">${c.name}</div>
+      <div class="coin-price">$${c.price.toLocaleString()}</div>
+      <div class="coin-vol">Vol: $${c.vol}</div>
+      <div class="sparkline">
+        <svg viewBox="0 0 100 36" preserveAspectRatio="none">
+          <path d="${path}" fill="none" stroke="${up ? '#10b981' : '#ef4444'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== TRANSACTIONS =====
+let currentFilter = 'all';
+
+function buildTransactions(filter) {
+  const body = document.getElementById('txBody');
+  const data = filter === 'all' ? TRANSACTIONS : TRANSACTIONS.filter(t => t.type === filter);
+
+  body.innerHTML = data.map(tx => {
+    const isPos = tx.type === 'credit';
+    const isNeg = tx.type === 'debit' || tx.type === 'payment';
+    const sign = isPos ? '+' : isNeg ? '-' : '→';
+    const amtClass = isPos ? 'pos' : isNeg ? 'neg' : '';
+
+    const typeIcons = { credit: '⬇', debit: '⬆', transfer: '⇄', payment: '💳' };
+
+    return `<tr>
+      <td><span class="tx-type ${tx.type}">${typeIcons[tx.type]} ${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}</span></td>
+      <td><span class="coin-pill">${tx.coin}</span></td>
+      <td class="tx-amount ${amtClass}">${sign}${tx.amount} ${tx.coin}</td>
+      <td class="tx-amount ${amtClass}">${sign}$${tx.usd.toLocaleString()}</td>
+      <td class="tx-hash"><span onclick="alert('TX: ${tx.hash}\\nFull hash would link to block explorer')">${tx.hash}</span></td>
+      <td><span class="tx-status ${tx.status}"><span class="status-dot"></span>${tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}</span></td>
+      <td class="tx-time">${tx.date}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTx(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildTransactions(type);
+}
+
+// ===== SUMMARY TOTALS =====
+function buildSummary() {
+  let credits = 0, debits = 0, payments = 0;
+  TRANSACTIONS.forEach(tx => {
+    if (tx.status === 'failed') return;
+    if (tx.type === 'credit') credits += tx.usd;
+    if (tx.type === 'debit') debits += tx.usd;
+    if (tx.type === 'payment') payments += tx.usd;
+  });
+  document.getElementById('totalCredits').textContent = '$' + credits.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('totalDebits').textContent = '$' + debits.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('totalPayments').textContent = '$' + payments.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  const net = credits - debits - payments;
+  const netEl = document.getElementById('netBalance');
+  netEl.textContent = (net >= 0 ? '+' : '') + '$' + Math.abs(net).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  netEl.className = 'summary-val ' + (net >= 0 ? 'green' : 'red');
+}
+
+// ===== RECEIPTS =====
+function buildReceipts() {
+  const latest = TRANSACTIONS.find(t => t.status === 'confirmed');
+  if (latest) {
+    const coin = COINS.find(c => c.sym === latest.coin);
+    const fee = (latest.usd * 0.001).toFixed(4);
+    document.getElementById('latestReceipt').innerHTML = `
+      <div class="receipt-row">
+        <span class="receipt-key">Transaction ID</span>
+        <span class="receipt-val" style="color:var(--accent4)">${latest.hash}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">Type</span>
+        <span class="receipt-val">${latest.type.toUpperCase()}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">Asset</span>
+        <span class="receipt-val">${latest.coin}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">Amount</span>
+        <span class="receipt-val">${latest.amount} ${latest.coin}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">USD Value</span>
+        <span class="receipt-val">$${latest.usd.toLocaleString()}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">Network Fee</span>
+        <span class="receipt-val">$${fee}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">Date</span>
+        <span class="receipt-val">${latest.date}</span>
+      </div>
+      <div class="receipt-total">
+        <span class="receipt-key">Total</span>
+        <span class="receipt-val">$${(latest.usd + parseFloat(fee)).toLocaleString()}</span>
+      </div>`;
+  }
+
+  const pending = TRANSACTIONS.find(t => t.status === 'pending');
+  if (pending) {
+    const fee = (pending.usd * 0.0015).toFixed(4);
+    const eta = '~12 min';
+    document.getElementById('pendingPayment').innerHTML = `
+      <div class="receipt-row">
+        <span class="receipt-key">Transaction ID</span>
+        <span class="receipt-val" style="color:var(--accent2)">${pending.hash}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">Type</span>
+        <span class="receipt-val">${pending.type.toUpperCase()}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">Asset</span>
+        <span class="receipt-val">${pending.coin}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">Amount</span>
+        <span class="receipt-val">${pending.amount} ${pending.coin}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">USD Value</span>
+        <span class="receipt-val">$${pending.usd.toLocaleString()}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">Est. Network Fee</span>
+        <span class="receipt-val">$${fee}</span>
+      </div>
+      <div class="receipt-row">
+        <span class="receipt-key">ETA Confirmation</span>
+        <span class="receipt-val" style="color:var(--accent2)">${eta}</span>
+      </div>
+      <div class="receipt-total">
+        <span class="receipt-key">Total</span>
+        <span class="receipt-val" style="color:var(--accent2)">$${(pending.usd + parseFloat(fee)).toLocaleString()}</span>
+      </div>`;
+  }
+}
+
+function selectCoin(sym) {
+  document.querySelectorAll('.price-card').forEach((el, i) => {
+    el.classList.toggle('active', COINS[i].sym === sym);
+  });
+}
+
+// ===== LIVE PRICE FLICKER =====
+function flickerPrices() {
+  COINS.forEach(c => {
+    const delta = (Math.random() - 0.49) * c.price * 0.002;
+    c.price = Math.max(0.01, c.price + delta);
+    c.change = parseFloat((c.change + (Math.random() - 0.5) * 0.1).toFixed(2));
+  });
+  buildPriceGrid();
+  buildTicker();
+}
+
+// ===== INIT =====
+buildTicker();
+buildPriceGrid();
+buildTransactions('all');
+buildSummary();
+buildReceipts();
+
+setInterval(flickerPrices, 3000);
+</script>
+
+</body>
+</html>
